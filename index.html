@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Hill Racer — Climb &amp; Drive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<!-- ───────── HUD (in-game) ───────── -->
+<div class="hud" id="hud">
+  <div class="hud-top">
+    <div class="hud-pill distance">
+      <span class="hud-label">Distance</span>
+      <span class="hud-value" id="distVal">0 m</span>
+    </div>
+    <div class="hud-pill coins">
+      <span class="ico">●</span>
+      <span class="hud-value" id="coinVal">0</span>
+    </div>
+    <button class="icon-btn" id="pauseBtn" aria-label="Pause">❚❚</button>
+  </div>
+
+  <div class="hud-bars">
+    <div class="bar-wrap">
+      <span class="bar-label">FUEL</span>
+      <div class="bar-track"><div class="bar-fill fuel" id="fuelBar"></div></div>
+    </div>
+  </div>
+
+  <div class="flip-toast" id="flipToast"></div>
+</div>
+
+<!-- ───────── Touch Controls (mobile) ───────── -->
+<div class="touch-controls" id="touchControls">
+  <button class="touch-btn lean-left" id="btnLeft" aria-label="Lean left">↺</button>
+  <div class="pedal-group">
+    <button class="touch-btn brake" id="btnBrake" aria-label="Brake">BRAKE</button>
+    <button class="touch-btn gas" id="btnGas" aria-label="Gas">GAS</button>
+  </div>
+  <button class="touch-btn lean-right" id="btnRight" aria-label="Lean right">↻</button>
+</div>
+
+<!-- ───────── Start Screen ───────── -->
+<div class="overlay" id="startScreen">
+  <div class="overlay-card">
+    <p class="overlay-eyebrow">Physics Driving Game</p>
+    <h1 class="overlay-title">HILL<span class="accent">RACER</span></h1>
+    <p class="overlay-desc">Gas it up the hills, balance your landings, and don't run out of fuel. Collect coins along the way.</p>
+
+    <div class="best-row">
+      <span>Best distance</span>
+      <strong id="bestDistStart">0 m</strong>
+    </div>
+
+    <button class="btn-primary big" id="startBtn">Start Engine</button>
+
+    <div class="controls-hint">
+      <div class="hint-block">
+        <span class="hint-title">Desktop</span>
+        <span>→ / D — Gas&nbsp;&nbsp;&nbsp;← / A — Brake&nbsp;&nbsp;&nbsp;↑↓ — Lean&nbsp;&nbsp;&nbsp;P — Pause</span>
+      </div>
+      <div class="hint-block">
+        <span class="hint-title">Mobile</span>
+        <span>Use the on-screen pedals and lean buttons</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────── Pause Screen ───────── -->
+<div class="overlay hidden" id="pauseScreen">
+  <div class="overlay-card">
+    <h2 class="overlay-title small">PAUSED</h2>
+    <button class="btn-primary big" id="resumeBtn">Resume</button>
+    <button class="btn-ghost" id="restartFromPauseBtn">Restart</button>
+  </div>
+</div>
+
+<!-- ───────── Game Over Screen ───────── -->
+<div class="overlay hidden" id="gameOverScreen">
+  <div class="overlay-card">
+    <p class="overlay-eyebrow" id="gameOverReason">Out of Fuel</p>
+    <h2 class="overlay-title small">RUN COMPLETE</h2>
+
+    <div class="result-grid">
+      <div class="result-item">
+        <span class="result-label">Distance</span>
+        <span class="result-value" id="finalDist">0 m</span>
+      </div>
+      <div class="result-item">
+        <span class="result-label">Coins</span>
+        <span class="result-value" id="finalCoins">0</span>
+      </div>
+      <div class="result-item">
+        <span class="result-label">Best Flip</span>
+        <span class="result-value" id="finalFlips">0</span>
+      </div>
+    </div>
+
+    <p class="new-best hidden" id="newBestTag">★ New Best Distance ★</p>
+
+    <button class="btn-primary big" id="retryBtn">Try Again</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
