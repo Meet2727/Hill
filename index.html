@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hill Climb Physics Runner</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            /* Disable pull-to-refresh and gestures on mobile */
+            touch-action: none; 
+        }
+        #game-container {
+            width: 100%;
+            height: 100%;
+            max-width: 1024px;
+            max-height: 576px;
+            aspect-ratio: 16 / 9;
+            position: relative;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+</head>
+<body>
+
+<div id="game-container"></div>
+
+<script>
+// --- GAME CONFIGURATION ---
+const config = {
+    type: Phaser.AUTO,
+    width: 1024,
+    height: 576,
+    parent: 'game-container',
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+    },
+    physics: {
+        default: 'matter',
+        matter: {
+            gravity: { y: 1 },
+            debug: false // Set to true to see hitboxes, springs, and joints
+        }
+    },
+    scene: {
+        preload: preload,
+        create: create,
+        update: update
+    }
+};
+
+const game = new Phaser.Game(config);
+
+// --- GLOBAL GAME VARIABLES ---
+let car, backWheel, frontWheel;
+let cursors;
+let score = 0;
+let scoreText;
+let gasButton, brakeButton;
+let isGasPressed = false;
+let isBrakePressed = false;
+
+// Physics parameters
+const DRIVE_TORQUE = 0.15;
+const AIR_TORQUE = 0.08;
+
+function preload() {
+    // Generate simple placeholder textures programmatically so no external assets are required
+    let canvas = this.textures.createCanvas('wheel', 40, 40);
+    let ctx = canvas.context;
+    ctx.fillStyle = '#333';
+    ctx.beginPath(); ctx.arc(20, 20, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(20, 0); ctx.lineTo(20, 40); ctx.moveTo(0, 20); ctx.lineTo(40, 20); ctx.stroke();
+    canvas.refresh();
+
+    let canvasCar = this.textures.createCanvas('carBody', 110, 40);
+    let ctxCar = canvasCar.context;
+    ctxCar.fillStyle = '#d9534f';
+    ctxCar.fillRect(0, 15, 110, 25);
+    ctxCar.fillStyle = '#5bc0de';
+    ctxCar.fillRect(30, 0, 50, 15);
+    canvasCar.refresh();
+}
+
+function create() {
+    const width = this.scale.width;
+    const height = this.scale.height;
+
+    // 1. Generate Procedural Terrain
+    const terrainPoints = [];
+    const segmentWidth = 60;
+    const totalSegments = 200;
+    let currentY = height - 120;
+
+    for (let i = 0; i < totalSegments; i++) {
+        let x = i * segmentWidth;
+        // Generate hills using sine waves and a dash of randomness
+        if (i > 5) {
+            currentY += Math.sin(i * 0.2) * 25 + (Math.random() * 15 - 7.5);
+        }
+        // Keep within reasonable screen bounds
+        currentY = Phaser.Math.Clamp(currentY, height - 300, height - 50);
+        terrainPoints.push({ x: x, y: currentY });
+    }
+
+    // Build static chain physics bodies out of the generated points
+    for (let i = 0; i < terrainPoints.length - 1; i++) {
+        let p1 = terrainPoints[i];
+        let p2 = terrainPoints[i + 1];
+        let midX = (p1.x + p2.x) / 2;
+        let midY = (p1.y + p2.y) / 2;
+        let length = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
+        let angle = Phaser.Math.Angle.Between(p1.x, p1.y, p2.x, p2.y);
+
+        let groundSegment = this.add.rectangle(midX, midY, length + 2, 20, 0x5cb85c);
+        this.matter.add.gameObject(groundSegment, {
+            isStatic: true,
+            friction: 0.8,
+            angle: angle
+        });
+    }
+
+    // 2. Build the Car Physics Structure
+    const startX = 200;
+    const startY = height - 250;
+
+    // Main Car Chassis
+    car = this.matter.add.image(startX, startY, 'carBody');
+    car.setRectangle(110, 40, {
+        friction: 0.3,
+        density: 0.002,
+        label: 'chassis'
+    });
+
+    // Wheels
+    backWheel = this.matter.add.image(startX - 35, startY + 25, 'wheel').setCircle(20, { friction: 0.9, density: 0.003 });
+    frontWheel = this.matter.add.image(startX + 35, startY + 25, 'wheel').setCircle(20, { friction: 0.9, density: 0.003 });
+
+    // Shock Absorbers (Springs using Matter Constraints)
+    this.matter.add.constraint(car, backWheel, 35, 0.1, {
+        pointA: { x: -35, y: 15 },
+        pointB: { x: 0, y: 0 },
+        render: { visible: true, lineColor: 0xffffff }
+    });
+    this.matter.add.constraint(car, frontWheel, 35, 0.1, {
+        pointA: { x: 35, y: 15 },
+        pointB: { x: 0, y: 0 },
+        render: { visible: true, lineColor: 0xffffff }
+    });
+
+    // 3. Camera Setup
+    this.cameras.main.setBounds(0, -2000, segmentWidth * totalSegments, 4000);
+    this.cameras.main.startFollow(car, true, 0.1, 0.1);
+    this.cameras.main.setBackgroundColor('#87CEEB'); // Sky blue
+
+    // 4. Input Configuration (Desktop)
+    cursors = this.input.keyboard.createCursorKeys();
+
+    // 5. HUD & Mobile UI Controls
+    scoreText = this.add.text(20, 20, 'Distance: 0m', { fontSize: '24px', fill: '#fff', fontStyle: 'bold' }).setScrollFactor(0);
+
+    // Mobile Virtual On-Screen Buttons
+    createMobileControls(this, width, height);
+}
+
+function update() {
+    let isOnGround = checkGrounded();
+
+    // Check Inputs (Merge Desktop Keyboard + Mobile Touch inputs)
+    let gasActive = cursors.right.isDown || cursors.space.isDown || isGasPressed;
+    let brakeActive = cursors.left.isDown || isBrakePressed;
+
+    if (gasActive) {
+        if (isOnGround) {
+            // Torque applied on ground drives wheels forward
+            this.matter.body.setAngularVelocity(backWheel.body, DRIVE_TORQUE);
+            this.matter.body.setAngularVelocity(frontWheel.body, DRIVE_TORQUE);
+        } else {
+            // Air Control: Tilt chassis clockwise
+            this.matter.body.setAngularVelocity(car.body, AIR_TORQUE);
+        }
+    } else if (brakeActive) {
+        if (isOnGround) {
+            // Apply braking/reversing torque
+            this.matter.body.setAngularVelocity(backWheel.body, -DRIVE_TORQUE * 0.6);
+            this.matter.body.setAngularVelocity(frontWheel.body, -DRIVE_TORQUE * 0.6);
+        } else {
+            // Air Control: Tilt chassis counter-clockwise
+            this.matter.body.setAngularVelocity(car.body, -AIR_TORQUE);
+        }
+    }
+
+    // Dynamic Score calculation based on maximum X coordinate reached
+    let currentDistance = Math.floor(car.x / 10);
+    if (currentDistance > score) {
+        score = currentDistance;
+        scoreText.setText('Distance: ' + score + 'm');
+    }
+
+    // Game Over Condition: If car flips upside down onto its roof
+    if (Math.abs(car.angle) > 140) {
+        this.cameras.main.flash(500, 255, 0, 0);
+        this.scene.restart();
+        score = 0;
+    }
+}
+
+// Simple Ground Check Helper Function
+function checkGrounded() {
+    return backWheel.body.speed < 15 || frontWheel.body.speed < 15;
+}
+
+// Helper Function to Create Interactive On-Screen Mobile Pedals
+function createMobileControls(scene, width, height) {
+    // Left Pedal (Brake)
+    brakeButton = scene.add.rectangle(100, height - 80, 140, 90, 0x222222, 0.7)
+        .setScrollFactor(0)
+        .setInteractive();
+    scene.add.text(65, height - 95, 'BRAKE', { fontSize: '20px', fill: '#fff' }).setScrollFactor(0);
+
+    // Right Pedal (Gas)
+    gasButton = scene.add.rectangle(width - 100, height - 80, 140, 90, 0x222222, 0.7)
+        .setScrollFactor(0)
+        .setInteractive();
+    scene.add.text(width - 125, height - 95, 'GAS', { fontSize: '20px', fill: '#fff' }).setScrollFactor(0);
+
+    // Interaction Events
+    brakeButton.on('pointerdown', () => { isBrakePressed = true; brakeButton.setFillStyle(0x444444, 0.9); });
+    brakeButton.on('pointerup', () => { isBrakePressed = false; brakeButton.setFillStyle(0x222222, 0.7); });
+    brakeButton.on('pointerout', () => { isBrakePressed = false; brakeButton.setFillStyle(0x222222, 0.7); });
+
+    gasButton.on('pointerdown', () => { isGasPressed = true; gasButton.setFillStyle(0x5cb85c, 0.9); });
+    gasButton.on('pointerup', () => { isGasPressed = false; gasButton.setFillStyle(0x222222, 0.7); });
+    gasButton.on('pointerout', () => { isGasPressed = false; gasButton.setFillStyle(0x222222, 0.7); });
+}
+</script>
+
+</body>
+</html>
